@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Spinner from "../Componentes/Spinner";
 import Swal from "sweetalert2";
 import NavBar from "../Componentes/NavBar";
+import Modal from "react-modal";
 
 const ShowSchedules = () => {
   const [schedules, setSchedules] = useState([]);
@@ -11,19 +12,24 @@ const ShowSchedules = () => {
   const [selectedState, setSelectedState] = useState("");
   const [selectedDay, setSelectedDay] = useState("");
   const [selectedDni, setSelectedDni] = useState("");
-
-  const getAvailableTransitions = (currentStatus) => {
+  const [showModal, setShowModal] = useState(false);
+  const [currentSchedule, setCurrentSchedule] = useState(null);
+  const [newState, setNewState] = useState("");
+ 
+  const getAvailableTransitions = (currentState) => {
     const transitions = {
-      DISPONIBLE: ["CONFIRMADO", "NO_RESERVADO", "ELIMINADO"],
-      CONFIRMADO: ["EJECUTADO", "NO_ASISTIDO", "CANCELADO", "ELIMINADO"],
-      CANCELADO: ["DISPONIBLE"],
-      EJECUTADO: [],
-      NO_ASISTIDO: [],
-      NO_RESERVADO: ["DISPONIBLE"],
-      ELIMINADO: [],
+      disponible: ["CONFIRMADO", "NO_RESERVADO", "ELIMINADO"],
+      confirmado: ["EJECUTADO", "NO_ASISTIDO", "CANCELADO", "ELIMINADO"],
+      canceladp: ["DISPONIBLE"],
+      ejecutado: [],
+      no_asistido: [],
+      no_reservado: [],
+      eliminado: [],
     };
-    return transitions[currentStatus] || [];
+    return transitions[currentState] || [];
   };
+
+  
 
   useEffect(() => {
     const fetchSchedules = async () => {
@@ -75,25 +81,25 @@ const ShowSchedules = () => {
   };
 
   const handleStateChange = (event) => {
-    setSelectedState(event.target.value);
+    setSelectedState(event.target.value.toLowerCase());
   };
 
   const handleDniChange = (event) => {
     setSelectedDni(event.target.value);
   };
 
-  const handleStatusChange = async (idSchedule, newState) => {
+  const handleStatusChange = async (idSchedule, newState, additionalData = {}) => {
     try {
-      const response = await fetch(
-        `http://localhost:3000/schedules/${idSchedule}/status`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ estado: newState }),
-        }
-      );
+      const body = {
+        estado: newState,
+        ...additionalData, // Incluir idPatient o deletionReason si aplican
+      };
+
+      const response = await fetch(`http://localhost:3000/schedules/${idSchedule}/change-status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
       if (!response.ok) {
         throw new Error(`Error al cambiar el estado: ${response.status}`);
@@ -118,6 +124,18 @@ const ShowSchedules = () => {
       });
     }
   };
+  
+  const openModal = (schedule) => {
+    setCurrentSchedule(schedule);
+    setNewState("");
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setCurrentSchedule(null);
+  };
+
 
   const filteredSchedules = schedules.filter((schedule) => {
     if (selectedDoctor && schedule.Doctor !== selectedDoctor) return false;
@@ -127,7 +145,6 @@ const ShowSchedules = () => {
     return true;
   });
 
-  
 
   return (
     <>
@@ -174,13 +191,13 @@ const ShowSchedules = () => {
               onChange={handleStateChange}
             >
               <option value="">Todos</option>
-              <option value="disponible">Disponible</option>
-              <option value="confirmado">Confirmado</option>
-              <option value="cancelado">Cancelado</option>
-              <option value="ejecutado">Ejecutado</option>
-              <option value="no_asistido">No asistido</option>
-              <option value="no_reservado">No reservado</option>
-              <option value="eliminado">Eliminado</option>
+              <option value="disponible">disponible</option>
+              <option value="confirmado">confirmado</option>
+              <option value="cancelado">cancelado</option>
+              <option value="ejecutado">ejecutado</option>
+              <option value="no_asistido">no asistido</option>
+              <option value="no_reservado">no reservado</option>
+              <option value="eliminado">eliminado</option>
             </select>
 
             <label className="search" htmlFor="text"></label>
@@ -204,6 +221,7 @@ const ShowSchedules = () => {
                     <th>Paciente</th>
                     <th>Teléfono</th>
                     <th>Estado</th>
+                    <th>Informacion</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -214,28 +232,11 @@ const ShowSchedules = () => {
                       <td>{schedule.Hora || "N/A"}</td>
                       <td>{schedule.Paciente || "N/A"}</td>
                       <td>{schedule.Telefono || "N/A"}</td>
+                      <td>{schedule.Estado || "N/A"}</td>
                       <td>
-                        <select
-                          defaultValue=""
-                          onChange={(e) =>{
-                            const newState = e.target.value;
-                            if (newState) {
-                              handleStatusChange(schedule.idSchedule, newState);
-                            }
-                          }
-                          }
-                        >
-                          <option value="" disabled>
-                            {schedule.Estado}
-                          </option>
-                          {getAvailableTransitions(schedule.Estado).map(
-                            (transition) => (
-                              <option key={transition} value={transition}>
-                                {transition}
-                              </option>
-                            )
-                          )}
-                        </select>
+                        <button onClick={() => openModal(schedule)}>
+                          Ver
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -249,8 +250,48 @@ const ShowSchedules = () => {
           )}
         </div>
       )}
+      
+<Modal
+        className="formContainerModal"
+        isOpen={showModal}
+        onRequestClose={closeModal}
+        ariaHideApp={false}
+      >
+        {showModal && currentSchedule && (
+          <div className="modal">
+            <div className="modal-content">
+              <h3>Cambiar Estado</h3>
+              <p>
+                <strong>Turno: </strong> {currentSchedule.Dia} - {currentSchedule.Hora}
+              </p>
+              <select value={newState} onChange={(e) => setNewState(e.target.value)}>
+                <option value="">Seleccione</option>
+                {getAvailableTransitions(currentSchedule.Estado).map((transition) => (
+                  
+                  <option key={transition} value={transition}>
+                    {transition}
+                  </option>
+                ))}
+              </select>
+              
+              <button
+                onClick={() => {
+                  handleStatusChange(currentSchedule.idSchedule, newState);
+                  closeModal(); // Cerrar modal tras guardar
+                }}
+                disabled={!newState} // Desactivar si no hay un estado seleccionado
+              >
+                Guardar
+              </button>
+              <button onClick={closeModal}>Cerrar</button>
+            </div>
+          </div>
+          
+        )}
+      </Modal>
     </>
   );
 };
+
 
 export default ShowSchedules;
