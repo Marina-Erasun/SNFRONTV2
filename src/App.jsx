@@ -37,6 +37,7 @@ import ListProfesionals from "./Componentes/ListProfesionals";
 import EditShifts from "./Componentes/EditShifts";
 import Coverage from "./Componentes/Coverage";
 import VerTurnos from "./Componentes/VerTurnos";
+import LookSchedule from "./Componentes/LookSchedule";
 
 import DeleteSchedule from "./Componentes/DeleteSchedule";
 import DeleteOneSchedule from "./Componentes/DeleteOneSchedule";
@@ -59,6 +60,7 @@ function App() {
             <Route path="/EliminarTurnos" element={<EditShifts />} />
             <Route path="/ObrasSociales" element={<Coverage />} />
             <Route path="/VerTurnos" element={<VerTurnos />} />
+            <Route path="/LookSchedule" element={<LookSchedule />} />
             <Route path="/EliminarAgenda" element={<DeleteSchedule />} />
             {/* <Route path="/EliminarUnaAgenda" element={<DeleteOneSchedule />} /> */}
           </Route>
