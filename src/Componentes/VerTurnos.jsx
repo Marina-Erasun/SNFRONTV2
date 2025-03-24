@@ -15,62 +15,51 @@ const ShowSchedules = () => {
   const [showModal, setShowModal] = useState(false);
   const [currentSchedule, setCurrentSchedule] = useState(null);
   const [newState, setNewState] = useState("");
- 
-  const getAvailableTransitions = (currentState) => {
-    const transitions = {
-      disponible: ["CONFIRMADO", "NO_RESERVADO", "ELIMINADO"],
-      confirmado: ["EJECUTADO", "NO_ASISTIDO", "CANCELADO", "ELIMINADO"],
-      canceladp: ["DISPONIBLE"],
-      ejecutado: [],
-      no_asistido: [],
-      no_reservado: [],
-      eliminado: [],
-    };
-    return transitions[currentState] || [];
-  };
-
+  const estados = ["disponible", "confirmado", "cancelado", "eliminado", "ejecutado", "no_asistido", "no_reservado"];
+  
   
 
   useEffect(() => {
-    const fetchSchedules = async () => {
-      try {
-        const response = await fetch("http://localhost:3000/schedules");
-        if (!response.ok) {
-          throw new Error(`Error al obtener los turnos: ${response.status}`);
-        }
-        const result = await response.json();
-
-        // Ordenar los turnos por día
-        const sortedSchedules = result.data.sort(
-          (a, b) => new Date(a.Dia) - new Date(b.Dia)
-        );
-        setSchedules(sortedSchedules);
-        setLoading(false);
-      } catch (error) {
-        setLoading(false);
-        Swal.fire({ text: "Hubo un error al traer los turnos", icon: "error" });
-      }
-    };
-
-    const fetchDoctors = async () => {
-      try {
-        const response = await fetch("http://localhost:3000/doctors");
-        if (!response.ok) {
-          throw new Error(`Error al obtener los doctores: ${response.status}`);
-        }
-        const result = await response.json();
-        setDoctors(result.data);
-      } catch (error) {
-        Swal.fire({
-          text: "Hubo un error al traer los doctores",
-          icon: "error",
-        });
-      }
-    };
-
     fetchSchedules();
     fetchDoctors();
   }, []);
+
+  const fetchSchedules = async () => {
+    try {
+      const response = await fetch("http://localhost:3000/schedules");
+      if (!response.ok) {
+        throw new Error(`Error al obtener los turnos: ${response.status}`);
+      }
+      const result = await response.json();
+      console.log("Turnos obtenidos:", result);
+
+      // Ordenar los turnos por día
+      const sortedSchedules = result.data.sort(
+        (a, b) => new Date(a.Dia) - new Date(b.Dia)
+      );
+      setSchedules(sortedSchedules);
+      setLoading(false);
+    } catch (error) {
+      setLoading(false);
+      Swal.fire({ text: "Hubo un error al traer los turnos", icon: "error" });
+    }
+  };
+
+  const fetchDoctors = async () => {
+    try {
+      const response = await fetch("http://localhost:3000/doctors");
+      if (!response.ok) {
+        throw new Error(`Error al obtener los doctores: ${response.status}`);
+      }
+      const result = await response.json();
+      setDoctors(result.data);
+    } catch (error) {
+      Swal.fire({
+        text: "Hubo un error al traer los doctores",
+        icon: "error",
+      });
+    }
+  };
 
   const handleDoctorChange = (event) => {
     setSelectedDoctor(event.target.value);
@@ -88,7 +77,8 @@ const ShowSchedules = () => {
     setSelectedDni(event.target.value);
   };
 
-  const handleStatusChange = async (idSchedule, newState, additionalData = {}) => {
+  const handleChangeEstado = async (idSchedule, newState, additionalData = {}) => {
+    console.log("ID del turno:", idSchedule);
     try {
       const body = {
         estado: newState,
@@ -106,12 +96,14 @@ const ShowSchedules = () => {
       }
 
       const updatedSchedule = await response.json();
+      
 
       setSchedules((prevSchedules) =>
         prevSchedules.map((schedule) =>
-          schedule.idSchedule === idSchedule ? updatedSchedule : schedule
+          schedule.idSchedule === idSchedule ? { ...schedule, estado: newState } : schedule
         )
       );
+      fetchSchedules();
 
       Swal.fire({
         text: "Estado actualizado correctamente",
@@ -127,7 +119,7 @@ const ShowSchedules = () => {
   
   const openModal = (schedule) => {
     setCurrentSchedule(schedule);
-    setNewState("");
+    setNewState(schedule.Estado);
     setShowModal(true);
   };
 
@@ -221,7 +213,7 @@ const ShowSchedules = () => {
                     <th>Paciente</th>
                     <th>Teléfono</th>
                     <th>Estado</th>
-                    <th>Informacion</th>
+                    <th>Accion</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -234,9 +226,17 @@ const ShowSchedules = () => {
                       <td>{schedule.Telefono || "N/A"}</td>
                       <td>{schedule.Estado || "N/A"}</td>
                       <td>
-                        <button onClick={() => openModal(schedule)}>
-                          Ver
-                        </button>
+                      <button onClick={() => openModal(schedule)}>Ver</button>
+                     {/* <select
+                    value={schedule.Estado}
+                    onChange={e => handleChangeEstado(schedule.idSchedule, e.target.value)}
+                  >
+                    {estados.map(estado => (
+                      <option key={estado} value={estado}>
+                        {estado}
+                      </option>
+                    ))}
+                  </select>*/}
                       </td>
                     </tr>
                   ))}
@@ -250,48 +250,47 @@ const ShowSchedules = () => {
           )}
         </div>
       )}
+
+      <Modal
+              className="formContainerModal"
+              isOpen={showModal}
+              onRequestClose={closeModal}
+              ariaHideApp={false}
+            >
+              {showModal && currentSchedule && (
+                <div className="modal">
+                  <div className="modal-content">
+                    <h3>Cambiar Estado</h3>
+                    <p>
+                      <strong>Turno: </strong> {currentSchedule.Dia} - {currentSchedule.Hora}
+                    </p>
+                    <select value={newState} onChange={(e) => setNewState(e.target.value)}>
+                    {estados.map((estado) => (
+              <option key={estado} value={estado}>
+                {estado}
+              </option>
+                      ))}
+                    </select>
+                    
+                    <button
+                      onClick={() => {
+                        handleChangeEstado(currentSchedule.idSchedule, newState);
+                        closeModal(); // Cerrar modal tras guardar
+                      }}
+                      disabled={!newState} // Desactivar si no hay un estado seleccionado
+                    >
+                      Guardar
+                    </button>
+                    <button onClick={closeModal}>Cerrar</button>
+                  </div>
+                </div>
+                
+              )}
+            </Modal>
       
-<Modal
-        className="formContainerModal"
-        isOpen={showModal}
-        onRequestClose={closeModal}
-        ariaHideApp={false}
-      >
-        {showModal && currentSchedule && (
-          <div className="modal">
-            <div className="modal-content">
-              <h3>Cambiar Estado</h3>
-              <p>
-                <strong>Turno: </strong> {currentSchedule.Dia} - {currentSchedule.Hora}
-              </p>
-              <select value={newState} onChange={(e) => setNewState(e.target.value)}>
-                <option value="">Seleccione</option>
-                {getAvailableTransitions(currentSchedule.Estado).map((transition) => (
-                  
-                  <option key={transition} value={transition}>
-                    {transition}
-                  </option>
-                ))}
-              </select>
-              
-              <button
-                onClick={() => {
-                  handleStatusChange(currentSchedule.idSchedule, newState);
-                  closeModal(); // Cerrar modal tras guardar
-                }}
-                disabled={!newState} // Desactivar si no hay un estado seleccionado
-              >
-                Guardar
-              </button>
-              <button onClick={closeModal}>Cerrar</button>
-            </div>
-          </div>
-          
-        )}
-      </Modal>
+
     </>
   );
 };
-
-
 export default ShowSchedules;
+
