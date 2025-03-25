@@ -15,9 +15,18 @@ const ShowSchedules = () => {
   const [showModal, setShowModal] = useState(false);
   const [currentSchedule, setCurrentSchedule] = useState(null);
   const [newState, setNewState] = useState("");
-  const estados = ["disponible", "confirmado", "cancelado", "eliminado", "ejecutado", "no_asistido", "no_reservado"];
-  
-  
+  const [selectedDeleted, setSelecteDeleted] = useState("");
+
+  const estados = [
+    "disponible",
+    "confirmado",
+    "cancelado",
+    "eliminado",
+    "ejecutado",
+    "no_asistido",
+    "no_reservado",
+  ];
+  const deleted = ["error administrativo", "cancelación del doctor", "otro"];
 
   useEffect(() => {
     fetchSchedules();
@@ -77,30 +86,36 @@ const ShowSchedules = () => {
     setSelectedDni(event.target.value);
   };
 
-  const handleChangeEstado = async (idSchedule, newState, additionalData = {}) => {
+  const handleChangeEstado = async (
+    idSchedule,
+    newState,
+    additionalData = {}
+  ) => {
     console.log("ID del turno:", idSchedule);
     try {
-      const body = {
-        estado: newState,
-        ...additionalData, // Incluir idPatient o deletionReason si aplican
-      };
+      const body = { estado: newState };
+      if (newState === "eliminado") {
+        body.deletionReason = selectedDeleted;
+      }
 
-      const response = await fetch(`http://localhost:3000/schedules/${idSchedule}/change-status`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      const response = await fetch(
+        `http://localhost:3000/schedules/${idSchedule}/change-status`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`Error al cambiar el estado: ${response.status}`);
       }
 
-      const updatedSchedule = await response.json();
-      
-
       setSchedules((prevSchedules) =>
         prevSchedules.map((schedule) =>
-          schedule.idSchedule === idSchedule ? { ...schedule, estado: newState } : schedule
+          schedule.idSchedule === idSchedule
+            ? { ...schedule, estado: newState }
+            : schedule
         )
       );
       fetchSchedules();
@@ -109,6 +124,7 @@ const ShowSchedules = () => {
         text: "Estado actualizado correctamente",
         icon: "success",
       });
+      closeModal();
     } catch (error) {
       Swal.fire({
         text: "Error al actualizar el estado",
@@ -116,7 +132,7 @@ const ShowSchedules = () => {
       });
     }
   };
-  
+
   const openModal = (schedule) => {
     setCurrentSchedule(schedule);
     setNewState(schedule.Estado);
@@ -128,7 +144,6 @@ const ShowSchedules = () => {
     setCurrentSchedule(null);
   };
 
-
   const filteredSchedules = schedules.filter((schedule) => {
     if (selectedDoctor && schedule.Doctor !== selectedDoctor) return false;
     if (selectedDay && schedule.Dia !== selectedDay) return false;
@@ -136,7 +151,6 @@ const ShowSchedules = () => {
     if (selectedDni && schedule.Documento !== selectedDni) return false;
     return true;
   });
-
 
   return (
     <>
@@ -191,7 +205,6 @@ const ShowSchedules = () => {
               <option value="no_reservado">no reservado</option>
               <option value="eliminado">eliminado</option>
             </select>
-
             <label className="search" htmlFor="text"></label>
             <input
               type="text"
@@ -226,17 +239,7 @@ const ShowSchedules = () => {
                       <td>{schedule.Telefono || "N/A"}</td>
                       <td>{schedule.Estado || "N/A"}</td>
                       <td>
-                      <button onClick={() => openModal(schedule)}>Ver</button>
-                     {/* <select
-                    value={schedule.Estado}
-                    onChange={e => handleChangeEstado(schedule.idSchedule, e.target.value)}
-                  >
-                    {estados.map(estado => (
-                      <option key={estado} value={estado}>
-                        {estado}
-                      </option>
-                    ))}
-                  </select>*/}
+                        <button onClick={() => openModal(schedule)}>Ver</button>
                       </td>
                     </tr>
                   ))}
@@ -252,45 +255,60 @@ const ShowSchedules = () => {
       )}
 
       <Modal
-              className="formContainerModal"
-              isOpen={showModal}
-              onRequestClose={closeModal}
-              ariaHideApp={false}
-            >
-              {showModal && currentSchedule && (
-                <div className="modal">
-                  <div className="modal-content">
-                    <h3>Cambiar Estado</h3>
-                    <p>
-                      <strong>Turno: </strong> {currentSchedule.Dia} - {currentSchedule.Hora}
-                    </p>
-                    <select value={newState} onChange={(e) => setNewState(e.target.value)}>
-                    {estados.map((estado) => (
-              <option key={estado} value={estado}>
-                {estado}
-              </option>
-                      ))}
-                    </select>
-                    
-                    <button
-                      onClick={() => {
-                        handleChangeEstado(currentSchedule.idSchedule, newState);
-                        closeModal(); // Cerrar modal tras guardar
-                      }}
-                      disabled={!newState} // Desactivar si no hay un estado seleccionado
-                    >
-                      Guardar
-                    </button>
-                    <button onClick={closeModal}>Cerrar</button>
-                  </div>
-                </div>
-                
+        className="formContainerModal"
+        isOpen={showModal}
+        onRequestClose={closeModal}
+        ariaHideApp={false}
+      >
+        {showModal && currentSchedule && (
+          <div className="modal">
+            <div className="modal-content">
+              <h3>Cambiar Estado</h3>
+              <p>
+                <strong>Turno: </strong> {currentSchedule.Dia} -{" "}
+                {currentSchedule.Hora}
+              </p>
+              <select
+                value={newState}
+                onChange={(e) => setNewState(e.target.value)}
+              >
+                {estados.map((estado) => (
+                  <option key={estado} value={estado}>
+                    {estado}
+                  </option>
+                ))}
+              </select>
+              {newState === "eliminado" && (
+                <>
+                  <p>Motivo de eliminación:</p>
+                  <select
+                    value={selectedDeleted}
+                    onChange={(e) => setSelecteDeleted(e.target.value)}
+                  >
+                    <option value="">Seleccione un motivo</option>
+                    {deleted.map((motivo) => (
+                      <option key={motivo} value={motivo}>
+                        {motivo}
+                      </option>
+                    ))}
+                  </select>
+                </>
               )}
-            </Modal>
-      
-
+              <button
+                onClick={() => {
+                  handleChangeEstado(currentSchedule.idSchedule, newState);
+                  closeModal(); // Cerrar modal tras guardar
+                }}
+                disabled={!newState} // Desactivar si no hay un estado seleccionado
+              >
+                Guardar
+              </button>
+              <button onClick={closeModal}>Cerrar</button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </>
   );
 };
 export default ShowSchedules;
-
