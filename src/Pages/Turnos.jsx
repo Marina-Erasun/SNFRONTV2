@@ -43,9 +43,10 @@ const Turnos = () => {
   // Función para obtener los horarios de un doctor específico
   const fetchSchedules = async () => {
     if (doctorId) {
+      console.log("ID del doctor:", doctorId);
       try {
         const response = await fetch(
-          `http://localhost:3000/schedules/by-doctor/${doctorId}`
+          `http://localhost:3000/schedules/${doctorId}`
         );
         if (!response.ok) {
           throw new Error(`Error al traer agenda: ${response.status}`);
@@ -59,14 +60,15 @@ const Turnos = () => {
           });
         } else {
           const sortedSchedules = data.data.sort((a, b) => {
-            if (a.day !== b.day) {
-              return new Date(a.day) - new Date(b.day); // Ordenamos por fecha
+            if (a.Dia !== b.Dia) {
+              return new Date(a.Dia) - new Date(b.Dia); // Ordenamos por fecha
             }
-            return a.start_Time.localeCompare(b.start_Time); // Si el día es el mismo, ordenamos por hora de inicio
+            return a.Hora.localeCompare(b.Hora); // Si el día es el mismo, ordenamos por hora de inicio
           });
           setSchedules(sortedSchedules);
         }
       } catch (error) {
+        console.error("Error al traer los turnos:", error);
         Swal.fire({
           text: "El Profesional no tiene turnos disponibles",
           icon: "error",
@@ -171,7 +173,7 @@ const Turnos = () => {
       }
 
       // Reservar turno
-      const shiffResponse = await fetch("http://localhost:3000/shiff", {
+      const shiffResponse = await fetch(`http://localhost:3000/schedules/${scheduleId}/take`, /*funcion takeSchedule (del back)*/{
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -292,9 +294,10 @@ const Turnos = () => {
 
           <select onChange={handleScheduleChange} required>
             <option value="">Seleccione un horario</option>
-            {schedules.map((schedule) => (
+            {schedules.filter(schedule => schedule.Estado === "disponible")
+            .map((schedule) => (
               <option key={schedule.idSchedule} value={schedule.idSchedule}>
-                {schedule.day} - {schedule.start_Time}
+                {schedule.Dia} - {schedule.Hora}
               </option>
             ))}
           </select>
